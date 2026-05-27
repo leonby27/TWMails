@@ -16,6 +16,16 @@
       color: #1b364a;
     }
 
+    /* ───── Верхняя шапка (только мобайл) ───── */
+    .topbar { display: none; }
+    .burger { width: 26px; height: 20px; position: relative; background: none; border: 0; padding: 0; cursor: pointer; flex: 0 0 auto; }
+    .burger span { position: absolute; left: 0; right: 0; height: 2px; background: #1b364a; border-radius: 2px; }
+    .burger span:nth-child(1) { top: 0; }
+    .burger span:nth-child(2) { top: 9px; }
+    .burger span:nth-child(3) { top: 18px; }
+
+    .overlay { display: none; }
+
     /* ───── Сайдбар ───── */
     .sidebar {
       width: 300px;
@@ -51,7 +61,6 @@
     }
     .nav-item.active .nav-item__date { color: #2784CE; }
 
-    /* одна строка максимум + обрезка в «…» */
     .nav-item__title {
       display: block;
       font-size: 17px;
@@ -67,10 +76,60 @@
     /* ───── Просмотр письма ───── */
     .viewer { flex: 1; height: 100vh; background: #E8EBF0; }
     .viewer iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+    /* ───── Мобайл: бургер + выезжающий сайдбар ───── */
+    @media (max-width: 768px) {
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: 56px;
+        padding: 0 18px;
+        background: #ffffff;
+        border-bottom: 1px solid #E3E8F0;
+        z-index: 30;
+      }
+      .topbar__title { font-size: 17px; font-weight: 700; color: #1b364a; }
+
+      .sidebar {
+        position: fixed;
+        top: 0; left: 0; bottom: 0;
+        width: 280px; min-width: 280px;
+        height: 100vh;
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        z-index: 40;
+        box-shadow: 0 0 40px rgba(15, 32, 58, .18);
+      }
+      body.nav-open .sidebar { transform: translateX(0); }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 32, 58, .45);
+        z-index: 35;
+      }
+      body:not(.nav-open) .overlay { display: none; }
+      body.nav-open .overlay { display: block; }
+
+      .viewer { width: 100%; padding-top: 56px; }
+      .viewer iframe { height: calc(100vh - 56px); }
+    }
   </style>
 </head>
 <body>
-  <aside class="sidebar">
+  <header class="topbar">
+    <button class="burger" id="burger" aria-label="Открыть меню" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <span class="topbar__title">Список писем</span>
+  </header>
+
+  <div class="overlay" id="overlay"></div>
+
+  <aside class="sidebar" id="sidebar">
     <div class="sidebar__head">
       <h1 class="sidebar__title">Список писем</h1>
     </div>
@@ -106,6 +165,21 @@
     (function () {
       var nav = document.getElementById('nav');
       var frame = document.getElementById('frame');
+      var burger = document.getElementById('burger');
+      var overlay = document.getElementById('overlay');
+
+      function closeMenu() {
+        document.body.classList.remove('nav-open');
+        burger.setAttribute('aria-expanded', 'false');
+      }
+      function toggleMenu() {
+        var open = document.body.classList.toggle('nav-open');
+        burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+
+      burger.addEventListener('click', toggleMenu);
+      overlay.addEventListener('click', closeMenu);
+
       nav.addEventListener('click', function (e) {
         var item = e.target.closest('.nav-item');
         if (!item) return;
@@ -115,6 +189,7 @@
         });
         item.classList.add('active');
         frame.src = item.getAttribute('data-src');
+        closeMenu();
       });
     })();
   </script>
