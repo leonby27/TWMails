@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Велком-цепочка (1 месяц) — Timeweb</title>
+  <title>Список писем — Timeweb</title>
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; }
@@ -18,8 +18,8 @@
 
     /* ───── Сайдбар ───── */
     .sidebar {
-      width: 400px;
-      min-width: 400px;
+      width: 300px;
+      min-width: 300px;
       height: 100vh;
       background: #ffffff;
       border-right: 1px solid #E3E8F0;
@@ -28,7 +28,6 @@
     }
     .sidebar__head { padding: 0 12px 20px; }
     .sidebar__title { margin: 0; font-size: 20px; font-weight: 700; line-height: 26px; color: #1b364a; }
-    .sidebar__sub { margin: 4px 0 0; font-size: 13px; color: #8e9bb0; }
 
     .nav { display: flex; flex-direction: column; gap: 6px; }
     .nav-item {
@@ -43,16 +42,14 @@
     .nav-item:hover { background: #F4F7FB; }
     .nav-item.active { background: #EBF6FF; border-color: #CFE3F8; }
 
-    .nav-item__num {
+    .nav-item__date {
       display: block;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: .4px;
-      text-transform: uppercase;
+      font-size: 13px;
+      font-weight: 400;
       color: #8e9bb0;
       margin-bottom: 3px;
     }
-    .nav-item.active .nav-item__num { color: #2784CE; }
+    .nav-item.active .nav-item__date { color: #2784CE; }
 
     /* одна строка максимум + обрезка в «…» */
     .nav-item__title {
@@ -75,28 +72,27 @@
 <body>
   <aside class="sidebar">
     <div class="sidebar__head">
-      <h1 class="sidebar__title">Велком-цепочка</h1>
-      <p class="sidebar__sub">оплата на 1 месяц · Timeweb</p>
+      <h1 class="sidebar__title">Список писем</h1>
     </div>
     <nav class="nav" id="nav">
       <a class="nav-item active" data-src="letter-1.html">
-        <span class="nav-item__num">Письмо 1</span>
+        <span class="nav-item__date">27 мая 2026</span>
         <span class="nav-item__title">Хороший старт!</span>
       </a>
       <a class="nav-item" data-src="letter-3.html">
-        <span class="nav-item__num">Письмо 3</span>
+        <span class="nav-item__date">29 мая 2026</span>
         <span class="nav-item__title">Запускаем ваш сайт вместе</span>
       </a>
       <a class="nav-item" data-src="letter-4.html">
-        <span class="nav-item__num">Письмо 4</span>
+        <span class="nav-item__date">2 июня 2026</span>
         <span class="nav-item__title">Пара слов лично от меня</span>
       </a>
       <a class="nav-item" data-src="letter-5.html">
-        <span class="nav-item__num">Письмо 5</span>
+        <span class="nav-item__date">9 июня 2026</span>
         <span class="nav-item__title">Давайте посчитаем выгоду?</span>
       </a>
       <a class="nav-item" data-src="letter-6.html">
-        <span class="nav-item__num">Письмо 6</span>
+        <span class="nav-item__date">18 июня 2026</span>
         <span class="nav-item__title">Любите промокоды?</span>
       </a>
     </nav>
