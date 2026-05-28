@@ -176,7 +176,27 @@
 
 ---
 
-## 9. Чек-лист перед сдачей письма в стиле designv2
+## 9. Preview vs Production
+
+Inline SVG (логотип + иконки) поддерживают далеко не все клиенты: Gmail и Outlook вырезают `<svg>` целиком, Яндекс/Mail.ru ненадёжно. Поэтому для каждого designv2-письма держим **две версии**:
+
+- `... (designv2).html` — preview-версия с inline SVG (то, что в iframe вьювере, что мы редактируем итерационно).
+- `... (designv2 production).html` — боевая версия, в которой все `<svg>` заменены на `<img src="https://leonby27.github.io/TWMails/img/...png">`.
+
+PNG-иконки лежат в `img/` в корне репо. Текущий пайплайн генерации (см. `/tmp/svg2png/gen.js`, должен переехать в `scripts/`):
+1. Render SVG → PNG через `sharp` (Node), density 384, ресайз до 3× от display-размера.
+2. Card-иконки: 30×30 displayed → 90×90 PNG.
+3. Hero-иконка: 64×64 displayed → 192×192 PNG.
+4. Логотип: 102×26 displayed → 306×78 PNG.
+5. Скрипт `build-prod.js` берёт preview-HTML, регексами заменяет каждый `<svg>` на `<img>` с абсолютным URL → пишет production-файл.
+
+**Что лежит в `index.html`:** в нав-сайдбаре триточки → дропдаун «Скачать». Для designv2 ссылка ведёт на production-файл, а превью в iframe — на preview-файл с SVG.
+
+**Перед реальной рассылкой:** хосты иконок надо переехать на постоянный CDN рассылок (`img.emlacc.com` или аналог), не на GitHub Pages. Обновить `BASE` в `build-prod.js` и перегенерить production-файлы.
+
+---
+
+## 10. Чек-лист перед сдачей письма в стиле designv2
 - [ ] Hero на `#04080D` + радиальный градиент.
 - [ ] Логотип в hero — inline SVG (белый текст + синяя стрелка).
 - [ ] Hero descr через `<p>` с `font-weight: 400` (не `<h2>`).
