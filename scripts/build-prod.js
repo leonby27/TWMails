@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 /**
- * build-prod.js — преобразует все designv2 preview HTML-файлы в production-версии:
+ * build-prod.js — для всех preview-HTML с inline <svg> генерит production-версию:
  *   - находит inline <svg> с явными width/height
  *   - рендерит каждый в PNG @3x через sharp (density 384)
  *   - сохраняет PNG в img/icon-<хэш>.png (хеш по содержимому, идемпотентно)
  *   - заменяет <svg> на <img src="<BASE_URL>/img/icon-<хэш>.png">
- *   - пишет рядом файл "(designv2 production).html"
+ *   - пишет рядом файл с суффиксом " production" (перед .html)
+ *
+ * Сканирует все .html в репо, пропуская:
+ *   - корневой index.html (viewer)
+ *   - файлы, у которых в имени уже есть " production"
+ *   - templates/, scripts/, .github/, node_modules/, img/, .git/
  *
  * Использование:
- *   node scripts/build-prod.js          # boevoy build c хостингом на GitHub Pages
+ *   node scripts/build-prod.js
  *   PROD_BASE_URL=https://cdn.example.com node scripts/build-prod.js
  */
 
@@ -22,20 +27,21 @@ const IMG_DIR = path.join(ROOT, 'img');
 const IMG_REL = 'img';
 const BASE_URL = (process.env.PROD_BASE_URL || 'https://leonby27.github.io/TWMails').replace(/\/+$/, '');
 
-// Папки/файлы, которые не сканируем
 const SKIP_DIRS = new Set(['.git', '.github', 'node_modules', 'img', 'scripts', 'templates']);
+const PRODUCTION_SUFFIX = ' production';
 
-function findDesignV2Previews(dir, results = []) {
+function findPreviewHTMLs(dir, results = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.')) continue;
     if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      findDesignV2Previews(full, results);
-    } else if (entry.isFile()
-      && entry.name.endsWith('.html')
-      && entry.name.includes('(designv2)')
-      && !entry.name.includes('(designv2 production)')) {
+      findPreviewHTMLs(full, results);
+    } else if (entry.isFile() && entry.name.endsWith('.html')) {
+      // Skip viewer index.html (на корне)
+      if (full === path.join(ROOT, 'index.html')) continue;
+      // Skip уже production-файлы
+      if (entry.name.includes(PRODUCTION_SUFFIX + '.html')) continue;
       results.push(full);
     }
   }
@@ -56,11 +62,8 @@ async function rasterize(svgString, displayW, displayH, outPath) {
 
 async function processFile(srcPath, manifest) {
   const rel = path.relative(ROOT, srcPath);
-  console.log(`\n→ ${rel}`);
   let html = fs.readFileSync(srcPath, 'utf8');
 
-  // Регекс находит <svg ...>...</svg> блоки. SVG в наших письмах не вложенные,
-  // line-by-line безопасно.
   const svgRegex = /<svg\b([^>]*)>([\s\S]*?)<\/svg>/g;
   const matches = [];
   let m;
@@ -68,22 +71,23 @@ async function processFile(srcPath, manifest) {
     matches.push({ full: m[0], attrs: m[1], index: m.index });
   }
   if (matches.length === 0) {
-    console.log('  (нет inline SVG, ничего не делаем)');
-    return;
+    return false; // не было SVG, production-файл не нужен
   }
+  console.log(`\n→ ${rel}`);
   console.log(`  найдено ${matches.length} inline SVG`);
 
   fs.mkdirSync(IMG_DIR, { recursive: true });
 
-  // обрабатываем с конца к началу, чтобы индексы не сдвигались при replace
   matches.reverse();
   let generated = 0;
   let reused = 0;
+  let skipped = 0;
   for (const match of matches) {
     const wMatch = match.attrs.match(/\bwidth=["'](\d+)["']/);
     const hMatch = match.attrs.match(/\bheight=["'](\d+)["']/);
     if (!wMatch || !hMatch) {
-      console.warn(`  ⚠ SVG без width/height, пропускаем (attrs: ${match.attrs.slice(0, 80)}...)`);
+      console.warn(`  ⚠ SVG без width/height, пропускаем`);
+      skipped++;
       continue;
     }
     const w = parseInt(wMatch[1], 10);
@@ -104,38 +108,54 @@ async function processFile(srcPath, manifest) {
     const imgTag = `<img src="${BASE_URL}/${IMG_REL}/${filename}" width="${w}" height="${h}" alt="" border="0" style="display: block;">`;
     html = html.slice(0, match.index) + imgTag + html.slice(match.index + match.full.length);
   }
-  console.log(`  PNG: сгенерировано ${generated}, переиспользовано ${reused}`);
+  console.log(`  PNG: сгенерировано ${generated}, переиспользовано ${reused}${skipped ? ', пропущено ' + skipped : ''}`);
 
-  // Имя выходного файла: "X (designv2).html" → "X (designv2 production).html"
-  const outName = path.basename(srcPath).replace('(designv2)', '(designv2 production)');
-  const outPath = path.join(path.dirname(srcPath), outName);
+  // Имя выходного файла: "X.html" → "X production.html"
+  // (если уже есть скобки в имени, suffix просто добавляется в конец)
+  const dir = path.dirname(srcPath);
+  const baseName = path.basename(srcPath, '.html');
+  const outName = `${baseName}${PRODUCTION_SUFFIX}.html`;
+  const outPath = path.join(dir, outName);
   fs.writeFileSync(outPath, html);
   console.log(`  ✓ ${path.relative(ROOT, outPath)}`);
+  return true;
 }
 
-function cleanupOrphans(referenced) {
-  if (!fs.existsSync(IMG_DIR)) return;
-  let removed = 0;
-  for (const file of fs.readdirSync(IMG_DIR)) {
-    if (!file.startsWith('icon-') || !file.endsWith('.png')) continue;
-    if (!referenced.has(file)) {
-      fs.unlinkSync(path.join(IMG_DIR, file));
-      removed++;
+function cleanupOrphans(referenced, allProductionFiles) {
+  // Удалить неиспользуемые PNG
+  if (fs.existsSync(IMG_DIR)) {
+    let removed = 0;
+    for (const file of fs.readdirSync(IMG_DIR)) {
+      if (!file.startsWith('icon-') || !file.endsWith('.png')) continue;
+      if (!referenced.has(file)) {
+        fs.unlinkSync(path.join(IMG_DIR, file));
+        removed++;
+      }
     }
+    if (removed > 0) console.log(`\n🧹 удалено ${removed} устаревших PNG`);
   }
-  if (removed > 0) console.log(`\n🧹 удалено ${removed} устаревших PNG`);
+
+  // Удалить устаревший production-файл со старым именованием
+  // (designv2 production) → теперь (designv2) production
+  const legacyDesignv2 = path.join(ROOT, 'Возврат на годовой тариф/Верните годовой тариф (designv2 production).html');
+  if (fs.existsSync(legacyDesignv2)) {
+    fs.unlinkSync(legacyDesignv2);
+    console.log(`🧹 удалён устаревший production-файл: Верните годовой тариф (designv2 production).html`);
+  }
 }
 
 (async () => {
-  const files = findDesignV2Previews(ROOT);
-  console.log(`Найдено ${files.length} designv2 preview-файлов`);
+  const files = findPreviewHTMLs(ROOT);
+  console.log(`Найдено ${files.length} preview-HTML-файлов`);
   console.log(`Базовый URL для PNG: ${BASE_URL}/${IMG_REL}/`);
   const manifest = new Set();
+  const productionFiles = [];
   for (const f of files) {
-    await processFile(f, manifest);
+    const created = await processFile(f, manifest);
+    if (created) productionFiles.push(f);
   }
-  cleanupOrphans(manifest);
-  console.log('\nDone.');
+  cleanupOrphans(manifest, productionFiles);
+  console.log(`\nDone. Production-файлов: ${productionFiles.length}.`);
 })().catch((err) => {
   console.error(err);
   process.exit(1);
