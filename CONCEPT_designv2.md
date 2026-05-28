@@ -180,19 +180,45 @@
 
 Inline SVG (логотип + иконки) поддерживают далеко не все клиенты: Gmail и Outlook вырезают `<svg>` целиком, Яндекс/Mail.ru ненадёжно. Поэтому для каждого designv2-письма держим **две версии**:
 
-- `... (designv2).html` — preview-версия с inline SVG (то, что в iframe вьювере, что мы редактируем итерационно).
-- `... (designv2 production).html` — боевая версия, в которой все `<svg>` заменены на `<img src="https://leonby27.github.io/TWMails/img/...png">`.
+- `... (designv2).html` — preview-версия с inline SVG (то, что редактируем итерационно).
+- `... (designv2 production).html` — боевая версия, в которой все `<svg>` заменены на `<img src="https://leonby27.github.io/TWMails/img/icon-<хэш>.png">`. Эту версию скачивает кнопка «Скачать» в сайдбаре.
 
-PNG-иконки лежат в `img/` в корне репо. Текущий пайплайн генерации (см. `/tmp/svg2png/gen.js`, должен переехать в `scripts/`):
-1. Render SVG → PNG через `sharp` (Node), density 384, ресайз до 3× от display-размера.
-2. Card-иконки: 30×30 displayed → 90×90 PNG.
-3. Hero-иконка: 64×64 displayed → 192×192 PNG.
-4. Логотип: 102×26 displayed → 306×78 PNG.
-5. Скрипт `build-prod.js` берёт preview-HTML, регексами заменяет каждый `<svg>` на `<img>` с абсолютным URL → пишет production-файл.
+### Автогенерация: ничего вручную не делаем
 
-**Что лежит в `index.html`:** в нав-сайдбаре триточки → дропдаун «Скачать». Для designv2 ссылка ведёт на production-файл, а превью в iframe — на preview-файл с SVG.
+**Pipeline** — `scripts/build-prod.js` + GitHub Actions:
 
-**Перед реальной рассылкой:** хосты иконок надо переехать на постоянный CDN рассылок (`img.emlacc.com` или аналог), не на GitHub Pages. Обновить `BASE` в `build-prod.js` и перегенерить production-файлы.
+1. Скрипт ходит по репо, находит все `*(designv2).html` (исключая `(designv2 production)`).
+2. Для каждого inline `<svg>` с явными `width`/`height`:
+   - SHA-256 контента → первые 10 символов = имя файла `img/icon-<hash>.png`. Идентичные SVG → один PNG (дедупликация). Поменялся цвет → новый хеш → новый PNG.
+   - Если PNG уже существует — переиспользуем. Если нет — рендерим через `sharp` (density 384, 3× от display-размера для retina).
+3. `<svg>` в HTML заменяется на `<img src="…/img/icon-<hash>.png" width=… height=… alt="" border="0" style="display:block;">`.
+4. Записывается рядом `(designv2 production).html`.
+5. Удаляются неиспользуемые PNG из `img/`.
+
+**CI:** `.github/workflows/build-prod.yml` запускается на push, если изменился любой `*(designv2).html`, `scripts/build-prod.js` или `package.json`. Скрипт прогоняется, изменения коммитятся обратно с пометкой `[skip ci]` (чтобы не было рекурсии).
+
+### Локальный dev
+
+```bash
+npm install         # один раз, ставит sharp
+npm run build       # перегенерить production-файлы локально
+```
+
+Чаще всего делать не надо — CI сам прогонит на push.
+
+### Переезд PNG на постоянный CDN
+
+Сейчас PNG лежат на GitHub Pages. Перед реальной массовой рассылкой стоит переехать на CDN рассылок (`img.emlacc.com` или другой):
+
+```bash
+PROD_BASE_URL=https://img.emlacc.com/en/v5/user-files/... npm run build
+```
+
+И не забыть поправить `BASE_URL` в CI (`build-prod.yml`).
+
+### Что лежит в `index.html`
+
+В нав-сайдбаре триточки → дропдаун «Скачать». Для designv2 ссылка ведёт на production-файл, а превью в iframe — на preview-файл с SVG (чтобы редактирование шло по живому).
 
 ---
 

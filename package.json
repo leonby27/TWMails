@@ -1,0 +1,12 @@
+{
+  "name": "twmails",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Timeweb HTML emails — preview viewer + designv2 production build pipeline",
+  "scripts": {
+    "build": "node scripts/build-prod.js"
+  },
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}
