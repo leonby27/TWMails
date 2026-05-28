@@ -31,7 +31,18 @@
     .sidebar__head { padding: 0 12px 16px; }
     .sidebar__title { margin: 0; font-size: 20px; font-weight: 700; line-height: 26px; color: #1b364a; }
 
+    .tabs { display: flex; gap: 4px; padding: 14px 8px 4px; }
+    .tab {
+      flex: 1; padding: 8px 10px; border: 0; cursor: pointer;
+      background: transparent; color: #8e9bb0;
+      font-family: inherit; font-size: 13px; font-weight: 700;
+      border-radius: 10px; transition: background .12s, color .12s;
+    }
+    .tab:hover { background: #F4F7FB; color: #1b364a; }
+    .tab.active { background: #EBF6FF; color: #2784CE; }
+
     .nav { display: flex; flex-direction: column; gap: 6px; }
+    .nav[hidden] { display: none; }
     .nav-group { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #aab3c5; padding: 16px 16px 4px; }
     .nav-group:first-child { padding-top: 2px; }
 
@@ -119,9 +130,13 @@
 
   <aside class="sidebar" id="sidebar">
     <div class="sidebar__head">
-      <h1 class="sidebar__title">Список писем</h1>
+      <h1 class="sidebar__title">Timeweb · письма</h1>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="mails" role="tab" aria-selected="true">Письма</button>
+        <button class="tab" data-tab="components" role="tab" aria-selected="false">Компоненты</button>
+      </div>
     </div>
-    <nav class="nav" id="nav">
+    <nav class="nav" id="nav-mails" role="tabpanel">
       <!-- NAV:START — этот блок генерируется scripts/build-prod.js из метаданных <meta name="x-mail-..."> в каждом письме. Руками не править. -->
       <div class="nav-group">Возврат на годовой</div>
       <div class="nav-row">
@@ -224,6 +239,76 @@
       </div>
       <!-- NAV:END -->
     </nav>
+    <nav class="nav" id="nav-components" role="tabpanel" hidden>
+      <!-- COMPONENTS_NAV:START — генерируется scripts/build-prod.js из метаданных <meta name="x-component-..."> в components/. Руками не править. -->
+      <div class="nav-row">
+        <a class="nav-item active" data-src="components/Шапка с кнопкой.html">
+          <span class="nav-item__title">Шапка с кнопкой</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="components/Шапка с кнопкой.html" download="Шапка с кнопкой.html">Скачать HTML</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="components/Карточки 3 в ряд.html">
+          <span class="nav-item__title">Карточки 3 в ряд</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="components/Карточки 3 в ряд.html" download="Карточки 3 в ряд.html">Скачать HTML</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="components/Карточки 2×2.html">
+          <span class="nav-item__title">Карточки 2×2</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="components/Карточки 2×2.html" download="Карточки 2×2.html">Скачать HTML</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="components/Список со стрелками.html">
+          <span class="nav-item__title">Список со стрелками</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="components/Список со стрелками.html" download="Список со стрелками.html">Скачать HTML</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="components/Карточки 2 в ряд.html">
+          <span class="nav-item__title">Карточки 2 в ряд</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="components/Карточки 2 в ряд.html" download="Карточки 2 в ряд.html">Скачать HTML</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="components/Telegram-блок.html">
+          <span class="nav-item__title">Telegram-блок</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="components/Telegram-блок.html" download="Telegram-блок.html">Скачать HTML</a>
+        </div>
+      </div>
+      <!-- COMPONENTS_NAV:END -->
+    </nav>
   </aside>
 
   <main class="viewer">
@@ -232,7 +317,8 @@
 
   <script>
     (function () {
-      var nav = document.getElementById('nav');
+      var navMails = document.getElementById('nav-mails');
+      var navComponents = document.getElementById('nav-components');
       var frame = document.getElementById('frame');
       var burger = document.getElementById('burger');
       var overlay = document.getElementById('overlay');
@@ -245,16 +331,49 @@
         var open = document.body.classList.toggle('nav-open');
         burger.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
-
       burger.addEventListener('click', toggleSidebar);
       overlay.addEventListener('click', closeSidebar);
 
-      // Инициализируем iframe от первого .nav-item.active (или первого item-а вообще)
-      var initial = nav.querySelector('.nav-item.active') || nav.querySelector('.nav-item');
+      // Активный nav для запоминания состояния
+      function activeNav() {
+        return navComponents.hasAttribute('hidden') ? navMails : navComponents;
+      }
+
+      function loadFromItem(item) {
+        var nav = item.closest('.nav');
+        Array.prototype.forEach.call(nav.querySelectorAll('.nav-item'), function (n) {
+          n.classList.remove('active');
+        });
+        item.classList.add('active');
+        frame.src = encodeURI(item.getAttribute('data-src'));
+      }
+
+      // Инициализируем iframe от первого item-а в активном табе (по умолчанию — Письма)
+      var initial = activeNav().querySelector('.nav-item.active') || activeNav().querySelector('.nav-item');
       if (initial) {
         if (!initial.classList.contains('active')) initial.classList.add('active');
         frame.src = encodeURI(initial.getAttribute('data-src'));
       }
+
+      // Табы
+      var tabs = document.querySelectorAll('.tab');
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          var target = tab.getAttribute('data-tab'); // 'mails' | 'components'
+          tabs.forEach(function (t) {
+            var isActive = t === tab;
+            t.classList.toggle('active', isActive);
+            t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+          var showMails = target === 'mails';
+          navMails.toggleAttribute('hidden', !showMails);
+          navComponents.toggleAttribute('hidden', showMails);
+          // Загружаем первый активный (или первый) item из показанного nav
+          var nav = showMails ? navMails : navComponents;
+          var item = nav.querySelector('.nav-item.active') || nav.querySelector('.nav-item');
+          if (item) loadFromItem(item);
+        });
+      });
 
       function closeAllRowMenus() {
         document.querySelectorAll('.nav-row__menu[data-open="true"]').forEach(function (m) {
@@ -287,16 +406,15 @@
         if (e.key === 'Escape') closeAllRowMenus();
       });
 
-      nav.addEventListener('click', function (e) {
-        var item = e.target.closest('.nav-item');
-        if (!item) return;
-        e.preventDefault();
-        Array.prototype.forEach.call(nav.querySelectorAll('.nav-item'), function (n) {
-          n.classList.remove('active');
+      // Делегированный клик по любому nav-item в обоих nav
+      [navMails, navComponents].forEach(function (nav) {
+        nav.addEventListener('click', function (e) {
+          var item = e.target.closest('.nav-item');
+          if (!item) return;
+          e.preventDefault();
+          loadFromItem(item);
+          closeSidebar();
         });
-        item.classList.add('active');
-        frame.src = encodeURI(item.getAttribute('data-src'));
-        closeSidebar();
       });
     })();
   </script>

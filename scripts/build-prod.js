@@ -32,6 +32,7 @@ const INDEX_HTML = path.join(ROOT, 'index.html');
 const BASE_URL = (process.env.PROD_BASE_URL || 'https://leonby27.github.io/TWMails').replace(/\/+$/, '');
 
 const SKIP_DIRS = new Set(['.git', '.github', 'node_modules', 'img', 'scripts', 'templates']);
+const COMPONENTS_DIR = 'components'; // обрабатывается отдельно (без production-конверсии)
 const PRODUCTION_SUFFIX = ' production';
 
 const MONTHS_RU = [
@@ -45,6 +46,7 @@ function findPreviewHTMLs(dir, results = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.name.startsWith('.')) continue;
     if (SKIP_DIRS.has(entry.name)) continue;
+    if (entry.name === COMPONENTS_DIR) continue; // компоненты — отдельным шагом
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       findPreviewHTMLs(full, results);
@@ -55,6 +57,14 @@ function findPreviewHTMLs(dir, results = []) {
     }
   }
   return results;
+}
+
+function findComponentHTMLs() {
+  const dir = path.join(ROOT, COMPONENTS_DIR);
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter(n => n.endsWith('.html'))
+    .map(n => path.join(dir, n));
 }
 
 function hashContent(buf) {
@@ -75,6 +85,14 @@ function extractMeta(html) {
   while ((m = re.exec(html)) !== null) meta[m[1]] = m[2];
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
   meta._docTitle = titleMatch ? titleMatch[1].trim() : null;
+  return meta;
+}
+
+function extractComponentMeta(html) {
+  const meta = {};
+  const re = /<meta\s+name=["']x-component-([^"']+)["']\s+content=["']([^"']*)["']\s*\/?\s*>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) meta[m[1]] = m[2];
   return meta;
 }
 
@@ -206,25 +224,66 @@ function buildNavHtml(entries) {
   return lines.join('\n');
 }
 
-function updateIndexNav(navHtml) {
-  let html = fs.readFileSync(INDEX_HTML, 'utf8');
-  const startMarker = '<!-- NAV:START';
-  const endMarker = '<!-- NAV:END -->';
+function componentRowHtml(entry, isActive) {
+  const cls = isActive ? 'nav-item active' : 'nav-item';
+  return [
+    `      <div class="nav-row">`,
+    `        <a class="${cls}" data-src="${escapeAttr(entry.previewPath)}">`,
+    `          <span class="nav-item__title">${escapeText(entry.title)}</span>`,
+    `        </a>`,
+    `        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">`,
+    `          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>`,
+    `        </button>`,
+    `        <div class="nav-row__menu" data-open="false" role="menu">`,
+    `          <a href="${escapeAttr(entry.previewPath)}" download="${escapeAttr(entry.downloadName)}">Скачать HTML</a>`,
+    `        </div>`,
+    `      </div>`
+  ].join('\n');
+}
+
+function buildComponentsNavHtml(entries) {
+  const items = entries.sort((a, b) => {
+    const ao = typeof a.order === 'number' ? a.order : 999;
+    const bo = typeof b.order === 'number' ? b.order : 999;
+    if (ao !== bo) return ao - bo;
+    return a.title.localeCompare(b.title, 'ru');
+  });
+  const lines = [];
+  for (let i = 0; i < items.length; i++) {
+    lines.push(componentRowHtml(items[i], i === 0));
+  }
+  return lines.join('\n');
+}
+
+function replaceBetweenMarkers(html, startMarker, endMarker, replacement) {
   const startIdx = html.indexOf(startMarker);
   const endIdx = html.indexOf(endMarker);
-  if (startIdx === -1 || endIdx === -1) {
-    console.error('  ⚠ index.html не содержит маркеров NAV:START/NAV:END — nav не обновлён');
-    return false;
-  }
+  if (startIdx === -1 || endIdx === -1) return null;
   const startLineEnd = html.indexOf('-->', startIdx) + 3;
   const before = html.slice(0, startLineEnd);
   const after = html.slice(endIdx);
-  const newHtml = before + '\n' + navHtml + '\n      ' + after;
-  if (newHtml !== html) {
-    fs.writeFileSync(INDEX_HTML, newHtml);
-    return true;
+  return before + '\n' + replacement + '\n      ' + after;
+}
+
+function updateIndex(navHtml, componentsNavHtml) {
+  let html = fs.readFileSync(INDEX_HTML, 'utf8');
+  let changed = false;
+  const nextHtmlA = replaceBetweenMarkers(html, '<!-- NAV:START', '<!-- NAV:END -->', navHtml);
+  if (nextHtmlA === null) {
+    console.error('  ⚠ index.html не содержит маркеров NAV:START/NAV:END');
+  } else if (nextHtmlA !== html) {
+    html = nextHtmlA;
+    changed = true;
   }
-  return false;
+  const nextHtmlB = replaceBetweenMarkers(html, '<!-- COMPONENTS_NAV:START', '<!-- COMPONENTS_NAV:END -->', componentsNavHtml);
+  if (nextHtmlB === null) {
+    console.error('  ⚠ index.html не содержит маркеров COMPONENTS_NAV:START/END');
+  } else if (nextHtmlB !== html) {
+    html = nextHtmlB;
+    changed = true;
+  }
+  if (changed) fs.writeFileSync(INDEX_HTML, html);
+  return changed;
 }
 
 // ─── main ─────────────────────────────────────────────────────────────────
@@ -245,7 +304,7 @@ function updateIndexNav(navHtml) {
   cleanupOrphans(manifest);
   console.log('└─');
 
-  // 2. Метаданные → nav
+  // 2. Метаданные писем → mails nav
   console.log('\n┌─ Sidebar nav из метаданных ─');
   const navEntries = [];
   for (const f of files) {
@@ -270,9 +329,28 @@ function updateIndexNav(navHtml) {
       downloadName
     });
   }
-  console.log(`  ${navEntries.length} писем в nav`);
+  console.log(`  Писем: ${navEntries.length}`);
+
+  // 3. Метаданные компонентов → components nav
+  const componentFiles = findComponentHTMLs();
+  const componentEntries = [];
+  for (const f of componentFiles) {
+    const html = fs.readFileSync(f, 'utf8');
+    const meta = extractComponentMeta(html);
+    const previewPath = path.relative(ROOT, f);
+    const title = meta.name || path.basename(f, '.html');
+    componentEntries.push({
+      title,
+      order: meta.order !== undefined ? parseInt(meta.order, 10) : undefined,
+      previewPath,
+      downloadName: path.basename(previewPath)
+    });
+  }
+  console.log(`  Компонентов: ${componentEntries.length}`);
+
   const navHtml = buildNavHtml(navEntries);
-  const changed = updateIndexNav(navHtml);
+  const componentsNavHtml = buildComponentsNavHtml(componentEntries);
+  const changed = updateIndex(navHtml, componentsNavHtml);
   console.log(`  index.html: ${changed ? 'обновлён' : 'без изменений'}`);
   console.log('└─');
 
