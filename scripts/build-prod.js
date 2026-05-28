@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 /**
- * build-prod.js — для всех preview-HTML с inline <svg> генерит production-версию:
- *   - находит inline <svg> с явными width/height
- *   - рендерит каждый в PNG @3x через sharp (density 384)
- *   - сохраняет PNG в img/icon-<хэш>.png (хеш по содержимому, идемпотентно)
- *   - заменяет <svg> на <img src="<BASE_URL>/img/icon-<хэш>.png">
- *   - пишет рядом файл с суффиксом " production" (перед .html)
+ * build-prod.js
  *
- * Сканирует все .html в репо, пропуская:
- *   - корневой index.html (viewer)
- *   - файлы, у которых в имени уже есть " production"
- *   - templates/, scripts/, .github/, node_modules/, img/, .git/
+ * Двойная задача:
+ *   1) Для каждого preview-HTML с inline <svg> генерит production-версию
+ *      (PNG-иконки через sharp, имена по sha256 контента, идемпотентно).
+ *   2) Из метаданных <meta name="x-mail-..."> в письмах собирает блок
+ *      навигации в корневом index.html (между маркерами NAV:START/NAV:END).
  *
- * Использование:
- *   node scripts/build-prod.js
- *   PROD_BASE_URL=https://cdn.example.com node scripts/build-prod.js
+ * Метаданные в письме (в <head>):
+ *   <meta name="x-mail-group" content="Велком-цепочка">          (обязательно)
+ *   <meta name="x-mail-group-order" content="2">                  (опционально, целое)
+ *   <meta name="x-mail-title" content="Хороший старт!">           (опционально, fallback: <title>)
+ *   <meta name="x-mail-date" content="2026-05-27">                (опционально, YYYY-MM-DD)
+ *   <meta name="x-mail-order" content="1">                        (опционально, порядок в группе)
+ *
+ * Сканирует .html в репо, пропуская корневой index.html, файлы с
+ * " production.html" в имени, а также папки .git, .github, node_modules,
+ * img, scripts, templates.
  */
 
 const fs = require('fs');
@@ -25,10 +28,18 @@ const sharp = require('sharp');
 const ROOT = path.resolve(__dirname, '..');
 const IMG_DIR = path.join(ROOT, 'img');
 const IMG_REL = 'img';
+const INDEX_HTML = path.join(ROOT, 'index.html');
 const BASE_URL = (process.env.PROD_BASE_URL || 'https://leonby27.github.io/TWMails').replace(/\/+$/, '');
 
 const SKIP_DIRS = new Set(['.git', '.github', 'node_modules', 'img', 'scripts', 'templates']);
 const PRODUCTION_SUFFIX = ' production';
+
+const MONTHS_RU = [
+  'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'
+];
+
+// ─── Утилиты ─────────────────────────────────────────────────────────────
 
 function findPreviewHTMLs(dir, results = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -38,9 +49,7 @@ function findPreviewHTMLs(dir, results = []) {
     if (entry.isDirectory()) {
       findPreviewHTMLs(full, results);
     } else if (entry.isFile() && entry.name.endsWith('.html')) {
-      // Skip viewer index.html (на корне)
-      if (full === path.join(ROOT, 'index.html')) continue;
-      // Skip уже production-файлы
+      if (full === INDEX_HTML) continue;
       if (entry.name.includes(PRODUCTION_SUFFIX + '.html')) continue;
       results.push(full);
     }
@@ -52,51 +61,63 @@ function hashContent(buf) {
   return crypto.createHash('sha256').update(buf).digest('hex').slice(0, 10);
 }
 
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+function escapeText(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function extractMeta(html) {
+  const meta = {};
+  const re = /<meta\s+name=["']x-mail-([^"']+)["']\s+content=["']([^"']*)["']\s*\/?\s*>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) meta[m[1]] = m[2];
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/);
+  meta._docTitle = titleMatch ? titleMatch[1].trim() : null;
+  return meta;
+}
+
+function formatDate(iso) {
+  // "2026-05-28" → "28 мая 2026"
+  const m = iso && iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso || '';
+  const y = m[1], mo = parseInt(m[2], 10) - 1, d = parseInt(m[3], 10);
+  return `${d} ${MONTHS_RU[mo] || ''} ${y}`.trim();
+}
+
+// ─── 1. Сборка production HTML + PNG ──────────────────────────────────────
+
 async function rasterize(svgString, displayW, displayH, outPath) {
-  const scale = 3; // retina @3x
+  const scale = 3;
   await sharp(Buffer.from(svgString), { density: 384 })
     .resize(displayW * scale, displayH * scale)
     .png({ compressionLevel: 9 })
     .toFile(outPath);
 }
 
-async function processFile(srcPath, manifest) {
-  const rel = path.relative(ROOT, srcPath);
+async function buildProduction(srcPath, manifest) {
   let html = fs.readFileSync(srcPath, 'utf8');
-
   const svgRegex = /<svg\b([^>]*)>([\s\S]*?)<\/svg>/g;
   const matches = [];
   let m;
   while ((m = svgRegex.exec(html)) !== null) {
     matches.push({ full: m[0], attrs: m[1], index: m.index });
   }
-  if (matches.length === 0) {
-    return false; // не было SVG, production-файл не нужен
-  }
-  console.log(`\n→ ${rel}`);
-  console.log(`  найдено ${matches.length} inline SVG`);
+  if (matches.length === 0) return null; // production-файл не нужен
 
   fs.mkdirSync(IMG_DIR, { recursive: true });
-
   matches.reverse();
-  let generated = 0;
-  let reused = 0;
-  let skipped = 0;
+  let generated = 0, reused = 0, skipped = 0;
   for (const match of matches) {
     const wMatch = match.attrs.match(/\bwidth=["'](\d+)["']/);
     const hMatch = match.attrs.match(/\bheight=["'](\d+)["']/);
-    if (!wMatch || !hMatch) {
-      console.warn(`  ⚠ SVG без width/height, пропускаем`);
-      skipped++;
-      continue;
-    }
+    if (!wMatch || !hMatch) { skipped++; continue; }
     const w = parseInt(wMatch[1], 10);
     const h = parseInt(hMatch[1], 10);
-
     const hash = hashContent(match.full);
     const filename = `icon-${hash}.png`;
     const outPath = path.join(IMG_DIR, filename);
-
     if (!fs.existsSync(outPath)) {
       await rasterize(match.full, w, h, outPath);
       generated++;
@@ -104,58 +125,158 @@ async function processFile(srcPath, manifest) {
       reused++;
     }
     manifest.add(filename);
-
     const imgTag = `<img src="${BASE_URL}/${IMG_REL}/${filename}" width="${w}" height="${h}" alt="" border="0" style="display: block;">`;
     html = html.slice(0, match.index) + imgTag + html.slice(match.index + match.full.length);
   }
-  console.log(`  PNG: сгенерировано ${generated}, переиспользовано ${reused}${skipped ? ', пропущено ' + skipped : ''}`);
 
-  // Имя выходного файла: "X.html" → "X production.html"
-  // (если уже есть скобки в имени, suffix просто добавляется в конец)
-  const dir = path.dirname(srcPath);
   const baseName = path.basename(srcPath, '.html');
   const outName = `${baseName}${PRODUCTION_SUFFIX}.html`;
-  const outPath = path.join(dir, outName);
+  const outPath = path.join(path.dirname(srcPath), outName);
   fs.writeFileSync(outPath, html);
-  console.log(`  ✓ ${path.relative(ROOT, outPath)}`);
-  return true;
+  console.log(`  ${path.relative(ROOT, outPath)} (PNG: +${generated} new, ${reused} reused${skipped ? ', ' + skipped + ' skipped' : ''})`);
+  return outPath;
 }
 
-function cleanupOrphans(referenced, allProductionFiles) {
-  // Удалить неиспользуемые PNG
-  if (fs.existsSync(IMG_DIR)) {
-    let removed = 0;
-    for (const file of fs.readdirSync(IMG_DIR)) {
-      if (!file.startsWith('icon-') || !file.endsWith('.png')) continue;
-      if (!referenced.has(file)) {
-        fs.unlinkSync(path.join(IMG_DIR, file));
-        removed++;
-      }
+function cleanupOrphans(referenced) {
+  if (!fs.existsSync(IMG_DIR)) return;
+  let removed = 0;
+  for (const file of fs.readdirSync(IMG_DIR)) {
+    if (!file.startsWith('icon-') || !file.endsWith('.png')) continue;
+    if (!referenced.has(file)) {
+      fs.unlinkSync(path.join(IMG_DIR, file));
+      removed++;
     }
-    if (removed > 0) console.log(`\n🧹 удалено ${removed} устаревших PNG`);
   }
-
-  // Удалить устаревший production-файл со старым именованием
-  // (designv2 production) → теперь (designv2) production
-  const legacyDesignv2 = path.join(ROOT, 'Возврат на годовой тариф/Верните годовой тариф (designv2 production).html');
-  if (fs.existsSync(legacyDesignv2)) {
-    fs.unlinkSync(legacyDesignv2);
-    console.log(`🧹 удалён устаревший production-файл: Верните годовой тариф (designv2 production).html`);
-  }
+  if (removed > 0) console.log(`\n🧹 удалено ${removed} устаревших PNG`);
 }
+
+// ─── 2. Сборка nav-блока в index.html ─────────────────────────────────────
+
+function navRowHtml(entry, isActive) {
+  const cls = isActive ? 'nav-item active' : 'nav-item';
+  const dateLine = entry.date
+    ? `          <span class="nav-item__date">${escapeText(formatDate(entry.date))}</span>\n`
+    : '';
+  return [
+    `      <div class="nav-row">`,
+    `        <a class="${cls}" data-src="${escapeAttr(entry.previewPath)}">`,
+    dateLine + `          <span class="nav-item__title">${escapeText(entry.title)}</span>`,
+    `        </a>`,
+    `        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">`,
+    `          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>`,
+    `        </button>`,
+    `        <div class="nav-row__menu" data-open="false" role="menu">`,
+    `          <a href="${escapeAttr(entry.productionPath)}" download="${escapeAttr(entry.downloadName)}">Скачать</a>`,
+    `        </div>`,
+    `      </div>`
+  ].join('\n');
+}
+
+function buildNavHtml(entries) {
+  // entries: [{ group, groupOrder, title, date, order, previewPath, productionPath, downloadName }]
+  const groups = new Map();
+  for (const e of entries) {
+    if (!groups.has(e.group)) groups.set(e.group, { order: 999, items: [] });
+    const g = groups.get(e.group);
+    if (typeof e.groupOrder === 'number') g.order = Math.min(g.order, e.groupOrder);
+    g.items.push(e);
+  }
+  const sortedGroups = [...groups.entries()].sort((a, b) => {
+    if (a[1].order !== b[1].order) return a[1].order - b[1].order;
+    return a[0].localeCompare(b[0], 'ru');
+  });
+
+  const lines = [];
+  let firstItem = true;
+  for (let i = 0; i < sortedGroups.length; i++) {
+    const [groupName, groupData] = sortedGroups[i];
+    if (i > 0) lines.push('');
+    lines.push(`      <div class="nav-group">${escapeText(groupName)}</div>`);
+    const items = groupData.items.sort((a, b) => {
+      const ao = typeof a.order === 'number' ? a.order : 999;
+      const bo = typeof b.order === 'number' ? b.order : 999;
+      if (ao !== bo) return ao - bo;
+      return a.previewPath.localeCompare(b.previewPath, 'ru');
+    });
+    for (const e of items) {
+      lines.push(navRowHtml(e, firstItem));
+      firstItem = false;
+    }
+  }
+  return lines.join('\n');
+}
+
+function updateIndexNav(navHtml) {
+  let html = fs.readFileSync(INDEX_HTML, 'utf8');
+  const startMarker = '<!-- NAV:START';
+  const endMarker = '<!-- NAV:END -->';
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  if (startIdx === -1 || endIdx === -1) {
+    console.error('  ⚠ index.html не содержит маркеров NAV:START/NAV:END — nav не обновлён');
+    return false;
+  }
+  const startLineEnd = html.indexOf('-->', startIdx) + 3;
+  const before = html.slice(0, startLineEnd);
+  const after = html.slice(endIdx);
+  const newHtml = before + '\n' + navHtml + '\n      ' + after;
+  if (newHtml !== html) {
+    fs.writeFileSync(INDEX_HTML, newHtml);
+    return true;
+  }
+  return false;
+}
+
+// ─── main ─────────────────────────────────────────────────────────────────
 
 (async () => {
   const files = findPreviewHTMLs(ROOT);
   console.log(`Найдено ${files.length} preview-HTML-файлов`);
   console.log(`Базовый URL для PNG: ${BASE_URL}/${IMG_REL}/`);
+
+  // 1. Production-файлы
+  console.log('\n┌─ Production HTML + PNG ─');
   const manifest = new Set();
-  const productionFiles = [];
+  const productionMap = new Map(); // srcPath -> production path (relative)
   for (const f of files) {
-    const created = await processFile(f, manifest);
-    if (created) productionFiles.push(f);
+    const prodPath = await buildProduction(f, manifest);
+    if (prodPath) productionMap.set(f, path.relative(ROOT, prodPath));
   }
-  cleanupOrphans(manifest, productionFiles);
-  console.log(`\nDone. Production-файлов: ${productionFiles.length}.`);
+  cleanupOrphans(manifest);
+  console.log('└─');
+
+  // 2. Метаданные → nav
+  console.log('\n┌─ Sidebar nav из метаданных ─');
+  const navEntries = [];
+  for (const f of files) {
+    const html = fs.readFileSync(f, 'utf8');
+    const meta = extractMeta(html);
+    if (!meta.group) {
+      console.warn(`  ⏭  ${path.relative(ROOT, f)} — нет <meta name="x-mail-group">, пропускаем`);
+      continue;
+    }
+    const previewPath = path.relative(ROOT, f);
+    const productionPath = productionMap.get(f) || previewPath; // если SVG не было, prod = preview
+    const downloadName = path.basename(previewPath); // имя файла без " production"
+    const title = meta.title || meta._docTitle || path.basename(f, '.html');
+    navEntries.push({
+      group: meta.group,
+      groupOrder: meta['group-order'] !== undefined ? parseInt(meta['group-order'], 10) : undefined,
+      title,
+      date: meta.date,
+      order: meta.order !== undefined ? parseInt(meta.order, 10) : undefined,
+      previewPath,
+      productionPath,
+      downloadName
+    });
+  }
+  console.log(`  ${navEntries.length} писем в nav`);
+  const navHtml = buildNavHtml(navEntries);
+  const changed = updateIndexNav(navHtml);
+  console.log(`  index.html: ${changed ? 'обновлён' : 'без изменений'}`);
+  console.log('└─');
+
+  console.log('\nDone.');
 })().catch((err) => {
   console.error(err);
   process.exit(1);
