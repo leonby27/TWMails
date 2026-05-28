@@ -35,8 +35,10 @@
     .nav-group { font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #aab3c5; padding: 16px 16px 4px; }
     .nav-group:first-child { padding-top: 2px; }
 
+    .nav-row { position: relative; }
+
     .nav-item {
-      display: block; text-decoration: none; padding: 12px 16px;
+      display: block; text-decoration: none; padding: 12px 44px 12px 16px;
       border-radius: 14px; border: 1px solid transparent; cursor: pointer;
       transition: background .12s, border-color .12s;
     }
@@ -51,6 +53,34 @@
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .nav-item.active .nav-item__title { color: #2784CE; }
+
+    .nav-row__menu-btn {
+      position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+      width: 28px; height: 28px; border: 0; border-radius: 8px;
+      background: transparent; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: #8e9bb0; opacity: 0;
+      transition: opacity .12s, background .12s, color .12s;
+    }
+    .nav-row:hover .nav-row__menu-btn,
+    .nav-row__menu-btn:focus,
+    .nav-row__menu-btn[aria-expanded="true"] { opacity: 1; }
+    .nav-row__menu-btn:hover { background: rgba(15, 32, 58, .08); color: #1b364a; }
+    @media (hover: none) { .nav-row__menu-btn { opacity: .6; } }
+
+    .nav-row__menu {
+      position: absolute; top: calc(100% - 4px); right: 8px; z-index: 50;
+      background: #ffffff; border: 1px solid #E3E8F0; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(15, 32, 58, .12);
+      padding: 6px; min-width: 170px; display: none;
+    }
+    .nav-row__menu[data-open="true"] { display: block; }
+    .nav-row__menu a {
+      display: block; padding: 10px 12px;
+      text-decoration: none; color: #1b364a;
+      border-radius: 8px; font-size: 14px; font-weight: 500;
+    }
+    .nav-row__menu a:hover { background: #F4F7FB; }
 
     .viewer { flex: 1; height: 100vh; background: #E8EBF0; }
     .viewer iframe { width: 100%; height: 100%; border: 0; display: block; }
@@ -93,36 +123,92 @@
     </div>
     <nav class="nav" id="nav">
       <div class="nav-group">Возврат на годовой</div>
-      <a class="nav-item active" data-src="Возврат на годовой тариф/Верните годовой тариф.html">
-        <span class="nav-item__date">27 мая 2026</span>
-        <span class="nav-item__title">Экономия до 35%</span>
-      </a>
-      <a class="nav-item" data-src="Возврат на годовой тариф/Верните годовой тариф (designv2).html">
-        <span class="nav-item__date">28 мая 2026</span>
-        <span class="nav-item__title">Дизайн v2</span>
-      </a>
+      <div class="nav-row">
+        <a class="nav-item active" data-src="Возврат на годовой тариф/Верните годовой тариф.html">
+          <span class="nav-item__date">27 мая 2026</span>
+          <span class="nav-item__title">Экономия до 35%</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="Возврат на годовой тариф/Верните годовой тариф.html" download="Верните годовой тариф.html">Скачать</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="Возврат на годовой тариф/Верните годовой тариф (designv2).html">
+          <span class="nav-item__date">28 мая 2026</span>
+          <span class="nav-item__title">Дизайн v2</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="Возврат на годовой тариф/Верните годовой тариф (designv2).html" download="Верните годовой тариф (designv2).html">Скачать</a>
+        </div>
+      </div>
 
       <div class="nav-group">Велком-цепочка</div>
-      <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 1.html">
-        <span class="nav-item__date">27 мая 2026</span>
-        <span class="nav-item__title">Хороший старт!</span>
-      </a>
-      <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 3.html">
-        <span class="nav-item__date">27 мая 2026</span>
-        <span class="nav-item__title">Запускаем ваш сайт вместе</span>
-      </a>
-      <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 4.html">
-        <span class="nav-item__date">27 мая 2026</span>
-        <span class="nav-item__title">Пара слов лично от меня</span>
-      </a>
-      <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 5.html">
-        <span class="nav-item__date">27 мая 2026</span>
-        <span class="nav-item__title">Давайте посчитаем выгоду?</span>
-      </a>
-      <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 6.html">
-        <span class="nav-item__date">27 мая 2026</span>
-        <span class="nav-item__title">Любите промокоды?</span>
-      </a>
+      <div class="nav-row">
+        <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 1.html">
+          <span class="nav-item__date">27 мая 2026</span>
+          <span class="nav-item__title">Хороший старт!</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="Велком-цепочка (1 месяц)/Письмо 1.html" download="Письмо 1.html">Скачать</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 3.html">
+          <span class="nav-item__date">27 мая 2026</span>
+          <span class="nav-item__title">Запускаем ваш сайт вместе</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="Велком-цепочка (1 месяц)/Письмо 3.html" download="Письмо 3.html">Скачать</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 4.html">
+          <span class="nav-item__date">27 мая 2026</span>
+          <span class="nav-item__title">Пара слов лично от меня</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="Велком-цепочка (1 месяц)/Письмо 4.html" download="Письмо 4.html">Скачать</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 5.html">
+          <span class="nav-item__date">27 мая 2026</span>
+          <span class="nav-item__title">Давайте посчитаем выгоду?</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="Велком-цепочка (1 месяц)/Письмо 5.html" download="Письмо 5.html">Скачать</a>
+        </div>
+      </div>
+      <div class="nav-row">
+        <a class="nav-item" data-src="Велком-цепочка (1 месяц)/Письмо 6.html">
+          <span class="nav-item__date">27 мая 2026</span>
+          <span class="nav-item__title">Любите промокоды?</span>
+        </a>
+        <button class="nav-row__menu-btn" aria-label="Меню" aria-expanded="false" aria-haspopup="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="nav-row__menu" data-open="false" role="menu">
+          <a href="Велком-цепочка (1 месяц)/Письмо 6.html" download="Письмо 6.html">Скачать</a>
+        </div>
+      </div>
     </nav>
   </aside>
 
@@ -137,17 +223,48 @@
       var burger = document.getElementById('burger');
       var overlay = document.getElementById('overlay');
 
-      function closeMenu() {
+      function closeSidebar() {
         document.body.classList.remove('nav-open');
         burger.setAttribute('aria-expanded', 'false');
       }
-      function toggleMenu() {
+      function toggleSidebar() {
         var open = document.body.classList.toggle('nav-open');
         burger.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
 
-      burger.addEventListener('click', toggleMenu);
-      overlay.addEventListener('click', closeMenu);
+      burger.addEventListener('click', toggleSidebar);
+      overlay.addEventListener('click', closeSidebar);
+
+      function closeAllRowMenus() {
+        document.querySelectorAll('.nav-row__menu[data-open="true"]').forEach(function (m) {
+          m.setAttribute('data-open', 'false');
+          var btn = m.parentNode.querySelector('.nav-row__menu-btn');
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+        });
+      }
+
+      document.addEventListener('click', function (e) {
+        var btn = e.target.closest('.nav-row__menu-btn');
+        if (btn) {
+          e.preventDefault();
+          e.stopPropagation();
+          var menu = btn.parentNode.querySelector('.nav-row__menu');
+          var wasOpen = menu.getAttribute('data-open') === 'true';
+          closeAllRowMenus();
+          if (!wasOpen) {
+            menu.setAttribute('data-open', 'true');
+            btn.setAttribute('aria-expanded', 'true');
+          }
+          return;
+        }
+        if (!e.target.closest('.nav-row__menu')) {
+          closeAllRowMenus();
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeAllRowMenus();
+      });
 
       nav.addEventListener('click', function (e) {
         var item = e.target.closest('.nav-item');
@@ -158,7 +275,7 @@
         });
         item.classList.add('active');
         frame.src = encodeURI(item.getAttribute('data-src'));
-        closeMenu();
+        closeSidebar();
       });
     })();
   </script>
